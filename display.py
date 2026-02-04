@@ -1,15 +1,27 @@
 import pygame
 import sys
 from Game import GameBase
-# import strategies.perfect3x3.perfect_strategy as strategy_ai
-import strategies.random.random_strategy as strategy_ai
-# import strategies.manual.manual_strategy as strategy_manual
+import strategies.random.random_strategy as random_strategy
+import strategies.perfect3x3.perfect_strategy as perfect_strategy
 
 
 class GameUI:
     def __init__(self):
         self.game = GameBase(3, 3)
-        self.strategy = strategy_ai.Strategy(self.game)
+
+        # Available strategies with caching
+        self.available_strategies = [
+            {"name": "Random", "module": random_strategy, "description": "Random moves", "instance": None},
+            {"name": "Perfect AI", "module": perfect_strategy, "description": "Unbeatable 3x3", "instance": None},
+        ]
+        self.current_strategy_index = 0
+
+        # Pre-load all strategies to avoid lag when switching
+        for strategy_info in self.available_strategies:
+            strategy_info["instance"] = strategy_info["module"].Strategy(self.game)
+
+        self.strategy = self.available_strategies[self.current_strategy_index]["instance"]
+
         self.result = 0
 
         pygame.init()
@@ -20,12 +32,19 @@ class GameUI:
 
         self.cell_size = self.window_size // (self.game.n * 1.1)
         self.grid = self.game.n
-        self.screen = pygame.display.set_mode((self.window_size, self.window_size + 50))
+
+        # Add space for strategy selector at top
+        self.top_bar_height = 60
+        # Add space for status bar and buttons at bottom
+        self.bottom_bar_height = 80
+        self.screen = pygame.display.set_mode((self.window_size, self.window_size + self.top_bar_height + self.bottom_bar_height))
         pygame.display.set_caption("tic-tac-toc")
 
         self.button_width = 120
         self.button_height = 40
-        self.button_y = self.window_size
+        # Status bar positioned above buttons
+        self.status_bar_y = self.window_size + self.top_bar_height + 10
+        self.button_y = self.window_size + self.top_bar_height + 40
 
         # Modern color scheme
         self.bg_gradient_top = (245, 247, 250)
@@ -57,6 +76,7 @@ class GameUI:
         # Hover state tracking
         self.hovered_button = None
         self.hovered_cell = None
+        self.hovered_strategy_button = None  # 'left' or 'right'
 
         self.current_player = 1
         self.game_on = None
@@ -68,11 +88,30 @@ class GameUI:
         self.button1_rect = pygame.Rect(20, self.button_y, self.button_width, self.button_height)
         self.button2_rect = pygame.Rect(self.window_size - self.button_width - 20, self.button_y, self.button_width,
                                         self.button_height)
-        self.button3_rect = pygame.Rect(self.window_size // 2 - 10, self.button_y, self.button_height, self.button_height)
+        # Center reset button between the two play buttons
+        self.button3_rect = pygame.Rect(self.window_size // 2 - self.button_height // 2, self.button_y,
+                                        self.button_height, self.button_height)
+
+        # Strategy selector buttons
+        self.strategy_arrow_size = 30
+        self.strategy_left_arrow = pygame.Rect(20, 15, self.strategy_arrow_size, self.strategy_arrow_size)
+        self.strategy_right_arrow = pygame.Rect(self.window_size - 20 - self.strategy_arrow_size, 15,
+                                                self.strategy_arrow_size, self.strategy_arrow_size)
+
+    def switch_strategy(self, direction):
+        """Switch to next/previous strategy"""
+        if direction == 'left':
+            self.current_strategy_index = (self.current_strategy_index - 1) % len(self.available_strategies)
+        else:  # right
+            self.current_strategy_index = (self.current_strategy_index + 1) % len(self.available_strategies)
+
+        # Use cached strategy instance
+        strategy_info = self.available_strategies[self.current_strategy_index]
+        self.strategy = strategy_info["instance"]
 
     def draw_gradient_background(self):
         """Draw vertical gradient background"""
-        height = self.window_size + 50
+        height = self.window_size + self.top_bar_height + self.bottom_bar_height
         for y in range(height):
             # Linear interpolation between top and bottom colors
             ratio = y / height
@@ -113,7 +152,7 @@ class GameUI:
     def draw_board_with_modern_effects(self):
         """Draw board with modern effects including shadows, rounded corners, and hover states"""
         board_x = (self.window_size - self.grid * self.cell_size) // 2
-        board_y = (self.window_size - self.grid * self.cell_size) // 2
+        board_y = (self.window_size - self.grid * self.cell_size) // 2 + self.top_bar_height
 
         # Draw board shadow
         board_rect = pygame.Rect(board_x - 5, board_y - 5,
@@ -141,10 +180,50 @@ class GameUI:
                 pygame.draw.rect(self.screen, self.grid_line_color, cell_rect,
                                width=2, border_radius=self.cell_radius)
 
+    def draw_strategy_selector(self):
+        """Draw strategy selection UI at the top"""
+        # Draw left arrow button
+        left_color = self.button_primary_hover if self.hovered_strategy_button == 'left' else self.button_primary
+        self.draw_rounded_rect_with_shadow(left_color, self.strategy_left_arrow, 8,
+                                          shadow=True, hover=(self.hovered_strategy_button == 'left'))
+
+        # Draw right arrow button
+        right_color = self.button_primary_hover if self.hovered_strategy_button == 'right' else self.button_primary
+        self.draw_rounded_rect_with_shadow(right_color, self.strategy_right_arrow, 8,
+                                          shadow=True, hover=(self.hovered_strategy_button == 'right'))
+
+        # Draw left arrow triangle
+        left_cx = self.strategy_left_arrow.centerx
+        left_cy = self.strategy_left_arrow.centery
+        left_arrow_points = [
+            (left_cx + 5, left_cy - 8),   # top right
+            (left_cx + 5, left_cy + 8),   # bottom right
+            (left_cx - 5, left_cy)        # left point
+        ]
+        pygame.draw.polygon(self.screen, self.text_color, left_arrow_points)
+
+        # Draw right arrow triangle
+        right_cx = self.strategy_right_arrow.centerx
+        right_cy = self.strategy_right_arrow.centery
+        right_arrow_points = [
+            (right_cx - 5, right_cy - 8),  # top left
+            (right_cx - 5, right_cy + 8),  # bottom left
+            (right_cx + 5, right_cy)       # right point
+        ]
+        pygame.draw.polygon(self.screen, self.text_color, right_arrow_points)
+
+        # Draw strategy name in center
+        strategy_info = self.available_strategies[self.current_strategy_index]
+        strategy_font = pygame.font.Font(None, 28)
+        strategy_text = strategy_font.render(f"Opponent: {strategy_info['name']}", True, (51, 65, 85))
+        text_x = (self.window_size - strategy_text.get_width()) // 2
+        text_y = 20
+        self.screen.blit(strategy_text, (text_x, text_y))
+
     def draw_pieces(self):
         """Draw X and O pieces on the board"""
         board_x = (self.window_size - self.grid * self.cell_size) // 2
-        board_y = (self.window_size - self.grid * self.cell_size) // 2
+        board_y = (self.window_size - self.grid * self.cell_size) // 2 + self.top_bar_height
 
         for ti, (i, j) in enumerate(self.game.x):
             cell_x = board_x + i * self.cell_size
@@ -164,15 +243,78 @@ class GameUI:
             else:
                 self.draw_o(cell_x, cell_y, t)
 
+    def draw_status_bar(self):
+        """Draw game status information bar"""
+        if not self.game_on:
+            return
+
+        # Calculate current round and whose turn
+        round_num = len(self.game.history) // 2 + 1
+        current_turn = len(self.game.history) % 2  # 0 = X's turn, 1 = O's turn
+
+        # Determine turn text
+        if self.play == -1:  # Watch mode (not implemented yet)
+            if current_turn == 0:
+                turn_text = "X's Turn"
+                turn_color = self.xx_color
+            else:
+                turn_text = "O's Turn"
+                turn_color = self.o_color
+        else:  # Playing mode
+            if current_turn == self.play:
+                turn_text = "AI's Turn"
+                turn_color = self.o_color if self.play == 1 else self.xx_color
+            else:
+                turn_text = "Your Turn"
+                turn_color = self.xx_color if self.play == 0 else self.o_color
+
+        # Get player symbol
+        symbol = "X" if current_turn == 0 else "O"
+
+        # Build status text
+        opponent_name = self.available_strategies[self.current_strategy_index]["name"]
+        status_text = f"Round {round_num} | {turn_text} ({symbol}) | vs {opponent_name}"
+
+        # Draw status bar background
+        font = pygame.font.Font(None, 24)
+        text_surface = font.render(status_text, True, (51, 65, 85))
+        text_width = text_surface.get_width()
+        text_height = text_surface.get_height()
+
+        # Draw background rectangle
+        bg_padding = 15
+        bg_x = (self.window_size - text_width - bg_padding * 2) // 2
+        bg_y = self.status_bar_y - 5
+        bg_rect = pygame.Rect(bg_x, bg_y, text_width + bg_padding * 2, text_height + 10)
+
+        # Semi-transparent background
+        bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(bg_surface, (255, 255, 255, 180), bg_surface.get_rect(), border_radius=8)
+        self.screen.blit(bg_surface, bg_rect, special_flags=pygame.BLEND_ALPHA_SDL2)
+
+        # Draw subtle border with turn color
+        pygame.draw.rect(self.screen, turn_color, bg_rect, width=2, border_radius=8)
+
+        # Draw text
+        text_x = (self.window_size - text_width) // 2
+        text_y = self.status_bar_y
+        self.screen.blit(text_surface, (text_x, text_y))
+
     def draw(self):
         # Draw gradient background
         self.draw_gradient_background()
+
+        # Draw strategy selector
+        self.draw_strategy_selector()
 
         # Draw modern board
         self.draw_board_with_modern_effects()
 
         # Draw pieces
         self.draw_pieces()
+
+        # Draw status bar
+        self.draw_status_bar()
 
         # Draw modern buttons with shadows
         button1_color = self.button_primary_hover if self.hovered_button == 1 else self.button_primary
@@ -200,9 +342,9 @@ class GameUI:
         self.screen.blit(text1, (text1_x, text1_y))
         self.screen.blit(text2, (text2_x, text2_y))
 
-        # Draw reset symbol (↻) for button3
+        # Draw reset symbol for button3
         reset_font = pygame.font.Font(None, 30)
-        reset_text = reset_font.render("↻", True, self.text_color)
+        reset_text = reset_font.render("R", True, self.text_color)
         reset_x = self.button3_rect.x + (self.button3_rect.width - reset_text.get_width()) // 2
         reset_y = self.button3_rect.y + (self.button3_rect.height - reset_text.get_height()) // 2
         self.screen.blit(reset_text, (reset_x, reset_y))
@@ -217,9 +359,19 @@ class GameUI:
                 text = "O Wins!"
                 text_surface = font.render(text, True, self.o_color)
 
-            # Draw text with shadow
+            # Draw text with shadow in the center of the board area
             text_x = (self.window_size - text_surface.get_width()) // 2
-            text_y = 20
+            # Position in the vertical center of the game board area
+            text_y = self.top_bar_height + (self.window_size - text_surface.get_height()) // 2
+
+            # Draw semi-transparent background behind text
+            bg_padding = 20
+            bg_rect = pygame.Rect(text_x - bg_padding, text_y - bg_padding // 2,
+                                 text_surface.get_width() + bg_padding * 2,
+                                 text_surface.get_height() + bg_padding)
+            bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(bg_surface, (255, 255, 255, 220), bg_surface.get_rect(), border_radius=15)
+            self.screen.blit(bg_surface, bg_rect, special_flags=pygame.BLEND_ALPHA_SDL2)
 
             # Shadow
             shadow_surface = font.render(text, True, (0, 0, 0, 50))
@@ -277,6 +429,13 @@ class GameUI:
         if event.type == pygame.MOUSEMOTION:
             mouse_pos = pygame.mouse.get_pos()
 
+            # Check strategy selector arrow hover
+            self.hovered_strategy_button = None
+            if self.strategy_left_arrow.collidepoint(mouse_pos):
+                self.hovered_strategy_button = 'left'
+            elif self.strategy_right_arrow.collidepoint(mouse_pos):
+                self.hovered_strategy_button = 'right'
+
             # Check button hover
             self.hovered_button = None
             if self.button1_rect.collidepoint(mouse_pos):
@@ -289,7 +448,7 @@ class GameUI:
             # Check cell hover
             if self.game_on:
                 board_x = (self.window_size - self.grid * self.cell_size) // 2
-                board_y = (self.window_size - self.grid * self.cell_size) // 2
+                board_y = (self.window_size - self.grid * self.cell_size) // 2 + self.top_bar_height
                 cell_x = mouse_pos[0] - board_x
                 cell_y = mouse_pos[1] - board_y
 
@@ -307,6 +466,14 @@ class GameUI:
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
+
+            # Check strategy selector clicks
+            if self.strategy_left_arrow.collidepoint(mouse_pos):
+                self.switch_strategy('left')
+            elif self.strategy_right_arrow.collidepoint(mouse_pos):
+                self.switch_strategy('right')
+
+            # Check game control buttons
             if self.button1_rect.collidepoint(mouse_pos):
                 self.start_game(0)
             elif self.button2_rect.collidepoint(mouse_pos):
@@ -317,7 +484,7 @@ class GameUI:
         if self.game_on and event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
             board_x = (self.window_size - self.grid * self.cell_size) // 2
-            board_y = (self.window_size - self.grid * self.cell_size) // 2
+            board_y = (self.window_size - self.grid * self.cell_size) // 2 + self.top_bar_height
 
             cell_x = mouse_pos[0] - board_x
             cell_y = mouse_pos[1] - board_y
@@ -337,11 +504,19 @@ class GameUI:
         self.result = 0
         self.game.reset()
         self.play = player
-        self.game_on = True
+
+        # Only set game_on to True if actually starting a game (not just resetting)
+        if player == -1:
+            # Reset button clicked - clear the board but don't start game
+            self.game_on = False
+        else:
+            # Play with X or Play with O clicked - start the game
+            self.game_on = True
+            if player == 1:
+                # AI goes first
+                self.strategy.make_move()
+
         self.draw()
-        if player == 1:
-            self.strategy.make_move()
-            self.draw()
 
     def run(self):
         while True:
