@@ -111,12 +111,24 @@
 
 ## 运行方式
 
+### 测试环境配置
+
+在测试时使用 conda 虚拟环境中的 Python：
+```bash
+/home/xiaohu/ls/envs/ttt/bin/python
+```
+
+### 运行命令
+
 ```bash
 # 图形界面版本
 python display.py
 
 # 命令行版本（与最优AI对战）
 python Game.py
+
+# 或使用指定的虚拟环境 Python
+/home/xiaohu/ls/envs/ttt/bin/python display.py
 ```
 
 ## 技术亮点

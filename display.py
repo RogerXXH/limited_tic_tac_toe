@@ -2,29 +2,141 @@ import pygame
 import sys
 from Game import GameBase
 import strategies.random.random_strategy as random_strategy
-import strategies.perfect3x3.perfect_strategy as perfect_strategy
+import strategies.perfect3x3.perfect_strategy as perfect3x3_strategy
+import strategies.perfect4x4_m3.perfect_strategy as perfect4x4_m3_strategy
 
 
 class GameUI:
     def __init__(self):
-        self.game = GameBase(3, 3)
+        pygame.init()
 
-        # Available strategies with caching
-        self.available_strategies = [
-            {"name": "Random", "module": random_strategy, "description": "Random moves", "instance": None},
-            {"name": "Perfect AI", "module": perfect_strategy, "description": "Unbeatable 3x3", "instance": None},
+        # Board size configuration
+        self.board_sizes = [
+            {"size": 3, "max_move": 3, "name": "3×3"},
+            {"size": 4, "max_move": 3, "name": "4×4 (3-move)"},
+            {"size": 4, "max_move": 4, "name": "4×4 (4-move)"},
         ]
+        self.current_board_index = 0
+
+        # Strategy catalog - each strategy specifies which board configs it supports
+        # supported_configs: list of (size, max_move) tuples
+        self.strategy_catalog = [
+            {
+                "name": "Random",
+                "module": random_strategy,
+                "description": "Random moves",
+                "supported_configs": [(3, 3), (4, 3), (4, 4)]
+            },
+            {
+                "name": "Perfect AI",
+                "module": perfect3x3_strategy,
+                "description": "Unbeatable 3×3",
+                "supported_configs": [(3, 3)]
+            },
+            {
+                "name": "Perfect AI",
+                "module": perfect4x4_m3_strategy,
+                "description": "Unbeatable 4×4",
+                "supported_configs": [(4, 3)]
+            },
+        ]
+
         self.current_strategy_index = 0
 
-        # Pre-load all strategies to avoid lag when switching
-        for strategy_info in self.available_strategies:
-            strategy_info["instance"] = strategy_info["module"].Strategy(self.game)
+        # Strategy instance cache - key: (module_name, board_size, max_move)
+        # This prevents re-loading training data when switching board sizes
+        self.strategy_cache = {}
+
+        # Modern color scheme (static)
+        self.bg_gradient_top = (245, 247, 250)
+        self.bg_gradient_bottom = (230, 235, 243)
+        self.button_primary = (59, 130, 246)
+        self.button_primary_hover = (37, 99, 235)
+        self.button_secondary = (168, 85, 247)
+        self.button_secondary_hover = (147, 51, 234)
+        self.text_color = (255, 255, 255)
+
+        # Modern piece colors
+        self.xx_color = (239, 68, 68)
+        self.xx_color_trc = (252, 165, 165)
+        self.o_color = (59, 130, 246)
+        self.o_color_trc = (147, 197, 253)
+
+        # Grid and cell colors
+        self.grid_line_color = (203, 213, 225)
+        self.cell_background = (255, 255, 255)
+        self.cell_hover = (248, 250, 252)
+
+        # Effect settings
+        self.button_radius = 10
+        self.cell_radius = 6
+        self.shadow_offset = (4, 4)
+
+        # Hover state tracking
+        self.hovered_button = None
+        self.hovered_cell = None
+        self.hovered_strategy_button = None
+        self.hovered_board_size_button = None
+
+        # Game state
+        self.current_player = 1
+        self.game_on = None
+        self.play = -1
+        self.result = 0
+
+        # Button text
+        self.button1_text = "Play with X"
+        self.button2_text = "Play with O"
+
+        # Initialize game with current board configuration
+        self._init_game()
+
+    def _init_game(self):
+        """Initialize or re-initialize game with current board configuration"""
+        board_config = self.board_sizes[self.current_board_index]
+        self.game = GameBase(board_config["size"], board_config["max_move"])
+
+        # Filter and load strategies for current board configuration
+        self.available_strategies = []
+        current_config = (board_config["size"], board_config["max_move"])
+
+        for strategy_info in self.strategy_catalog:
+            if current_config in strategy_info["supported_configs"]:
+                # Create cache key
+                cache_key = (
+                    strategy_info["module"].__name__,
+                    board_config["size"],
+                    board_config["max_move"]
+                )
+
+                # Check if strategy instance exists in cache
+                if cache_key in self.strategy_cache:
+                    instance = self.strategy_cache[cache_key]
+                    # IMPORTANT: Update the game reference in cached instance
+                    instance.game = self.game
+                else:
+                    # Create new instance and cache it
+                    instance = strategy_info["module"].Strategy(self.game)
+                    self.strategy_cache[cache_key] = instance
+
+                self.available_strategies.append({
+                    "name": strategy_info["name"],
+                    "module": strategy_info["module"],
+                    "description": strategy_info["description"],
+                    "instance": instance
+                })
+
+        # Reset strategy index if current one is not available
+        if self.current_strategy_index >= len(self.available_strategies):
+            self.current_strategy_index = 0
 
         self.strategy = self.available_strategies[self.current_strategy_index]["instance"]
 
-        self.result = 0
+        # Update UI dimensions
+        self._update_ui_dimensions()
 
-        pygame.init()
+    def _update_ui_dimensions(self):
+        """Update UI dimensions based on current board size"""
         if self.game.n < 6:
             self.window_size = self.game.n * 110
         else:
@@ -46,44 +158,7 @@ class GameUI:
         self.status_bar_y = self.window_size + self.top_bar_height + 10
         self.button_y = self.window_size + self.top_bar_height + 40
 
-        # Modern color scheme
-        self.bg_gradient_top = (245, 247, 250)
-        self.bg_gradient_bottom = (230, 235, 243)
-        self.button_primary = (59, 130, 246)
-        self.button_primary_hover = (37, 99, 235)
-        self.button_secondary = (168, 85, 247)
-        self.button_secondary_hover = (147, 51, 234)
-        self.text_color = (255, 255, 255)
-
-        # Modern piece colors
-        self.xx_color = (239, 68, 68)
-        self.xx_color_trc = (252, 165, 165)
-        self.o_color = (59, 130, 246)
-        self.o_color_trc = (147, 197, 253)
-
-        # Grid and cell colors
-        self.grid_line_color = (203, 213, 225)
-        self.cell_background = (255, 255, 255)
-        self.cell_hover = (248, 250, 252)
-
         self.piece_gap = self.cell_size // 5
-
-        # Effect settings
-        self.button_radius = 10
-        self.cell_radius = 6
-        self.shadow_offset = (4, 4)
-
-        # Hover state tracking
-        self.hovered_button = None
-        self.hovered_cell = None
-        self.hovered_strategy_button = None  # 'left' or 'right'
-
-        self.current_player = 1
-        self.game_on = None
-        self.play = -1
-
-        self.button1_text = "Play with X"
-        self.button2_text = "Play with O"
 
         self.button1_rect = pygame.Rect(20, self.button_y, self.button_width, self.button_height)
         self.button2_rect = pygame.Rect(self.window_size - self.button_width - 20, self.button_y, self.button_width,
@@ -92,11 +167,16 @@ class GameUI:
         self.button3_rect = pygame.Rect(self.window_size // 2 - self.button_height // 2, self.button_y,
                                         self.button_height, self.button_height)
 
-        # Strategy selector buttons
-        self.strategy_arrow_size = 30
-        self.strategy_left_arrow = pygame.Rect(20, 15, self.strategy_arrow_size, self.strategy_arrow_size)
-        self.strategy_right_arrow = pygame.Rect(self.window_size - 20 - self.strategy_arrow_size, 15,
-                                                self.strategy_arrow_size, self.strategy_arrow_size)
+        # Strategy selector buttons (left side of top bar, compact layout)
+        self.strategy_arrow_size = 25
+        self.strategy_left_arrow = pygame.Rect(10, 17, self.strategy_arrow_size, self.strategy_arrow_size)
+        self.strategy_right_arrow = pygame.Rect(40, 17, self.strategy_arrow_size, self.strategy_arrow_size)
+
+        # Board size selector buttons (right side of top bar, compact layout)
+        self.board_size_left_arrow = pygame.Rect(self.window_size - 65, 17,
+                                                 self.strategy_arrow_size, self.strategy_arrow_size)
+        self.board_size_right_arrow = pygame.Rect(self.window_size - 35, 17,
+                                                  self.strategy_arrow_size, self.strategy_arrow_size)
 
     def switch_strategy(self, direction):
         """Switch to next/previous strategy"""
@@ -108,6 +188,21 @@ class GameUI:
         # Use cached strategy instance
         strategy_info = self.available_strategies[self.current_strategy_index]
         self.strategy = strategy_info["instance"]
+
+    def switch_board_size(self, direction):
+        """Switch to next/previous board size"""
+        if direction == 'left':
+            self.current_board_index = (self.current_board_index - 1) % len(self.board_sizes)
+        else:  # right
+            self.current_board_index = (self.current_board_index + 1) % len(self.board_sizes)
+
+        # Re-initialize game with new board size
+        self._init_game()
+
+        # Reset game state
+        self.result = 0
+        self.game_on = False
+        self.play = -1
 
     def draw_gradient_background(self):
         """Draw vertical gradient background"""
@@ -182,6 +277,7 @@ class GameUI:
 
     def draw_strategy_selector(self):
         """Draw strategy selection UI at the top"""
+        # === Strategy Selector (Left Side) ===
         # Draw left arrow button
         left_color = self.button_primary_hover if self.hovered_strategy_button == 'left' else self.button_primary
         self.draw_rounded_rect_with_shadow(left_color, self.strategy_left_arrow, 8,
@@ -212,13 +308,52 @@ class GameUI:
         ]
         pygame.draw.polygon(self.screen, self.text_color, right_arrow_points)
 
-        # Draw strategy name in center
+        # Draw strategy name (compact, next to arrows)
         strategy_info = self.available_strategies[self.current_strategy_index]
-        strategy_font = pygame.font.Font(None, 28)
-        strategy_text = strategy_font.render(f"Opponent: {strategy_info['name']}", True, (51, 65, 85))
-        text_x = (self.window_size - strategy_text.get_width()) // 2
-        text_y = 20
+        strategy_font = pygame.font.Font(None, 20)
+        strategy_text = strategy_font.render(f"{strategy_info['name']}", True, (51, 65, 85))
+        text_x = 72
+        text_y = 24
         self.screen.blit(strategy_text, (text_x, text_y))
+
+        # === Board Size Selector (Right Side) ===
+        # Draw left arrow button
+        board_left_color = self.button_secondary_hover if self.hovered_board_size_button == 'left' else self.button_secondary
+        self.draw_rounded_rect_with_shadow(board_left_color, self.board_size_left_arrow, 8,
+                                          shadow=True, hover=(self.hovered_board_size_button == 'left'))
+
+        # Draw right arrow button
+        board_right_color = self.button_secondary_hover if self.hovered_board_size_button == 'right' else self.button_secondary
+        self.draw_rounded_rect_with_shadow(board_right_color, self.board_size_right_arrow, 8,
+                                          shadow=True, hover=(self.hovered_board_size_button == 'right'))
+
+        # Draw left arrow triangle
+        board_left_cx = self.board_size_left_arrow.centerx
+        board_left_cy = self.board_size_left_arrow.centery
+        board_left_arrow_points = [
+            (board_left_cx + 5, board_left_cy - 8),
+            (board_left_cx + 5, board_left_cy + 8),
+            (board_left_cx - 5, board_left_cy)
+        ]
+        pygame.draw.polygon(self.screen, self.text_color, board_left_arrow_points)
+
+        # Draw right arrow triangle
+        board_right_cx = self.board_size_right_arrow.centerx
+        board_right_cy = self.board_size_right_arrow.centery
+        board_right_arrow_points = [
+            (board_right_cx - 5, board_right_cy - 8),
+            (board_right_cx - 5, board_right_cy + 8),
+            (board_right_cx + 5, board_right_cy)
+        ]
+        pygame.draw.polygon(self.screen, self.text_color, board_right_arrow_points)
+
+        # Draw board size name (compact, aligned to right)
+        board_info = self.board_sizes[self.current_board_index]
+        board_text = strategy_font.render(f"{board_info['name']}", True, (51, 65, 85))
+        text_width = board_text.get_width()
+        text_x = self.window_size - 72 - text_width  # Right-aligned before arrows
+        text_y = 24
+        self.screen.blit(board_text, (text_x, text_y))
 
     def draw_pieces(self):
         """Draw X and O pieces on the board"""
@@ -436,6 +571,13 @@ class GameUI:
             elif self.strategy_right_arrow.collidepoint(mouse_pos):
                 self.hovered_strategy_button = 'right'
 
+            # Check board size selector arrow hover
+            self.hovered_board_size_button = None
+            if self.board_size_left_arrow.collidepoint(mouse_pos):
+                self.hovered_board_size_button = 'left'
+            elif self.board_size_right_arrow.collidepoint(mouse_pos):
+                self.hovered_board_size_button = 'right'
+
             # Check button hover
             self.hovered_button = None
             if self.button1_rect.collidepoint(mouse_pos):
@@ -472,6 +614,12 @@ class GameUI:
                 self.switch_strategy('left')
             elif self.strategy_right_arrow.collidepoint(mouse_pos):
                 self.switch_strategy('right')
+
+            # Check board size selector clicks
+            if self.board_size_left_arrow.collidepoint(mouse_pos):
+                self.switch_board_size('left')
+            elif self.board_size_right_arrow.collidepoint(mouse_pos):
+                self.switch_board_size('right')
 
             # Check game control buttons
             if self.button1_rect.collidepoint(mouse_pos):
