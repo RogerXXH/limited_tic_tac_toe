@@ -77,6 +77,12 @@ class GameTreeSolver:
         self.dp = {}
         self.depth = {}
 
+        # mmap 相关
+        self.mmap_file = None
+        self.mmap_obj = None
+        self.record_size = 14  # state(8) + dp0(1) + dp1(1) + depth0(2) + depth1(2)
+        self.num_records = 0
+
     def add_state(self, state):
         """添加状态"""
         if state not in self.edge0:
@@ -255,6 +261,40 @@ class GameTreeSolver:
             elif dp_val == [-1, -1]:
                 self.lose.add(state)
 
+    def load_training_data_mmap(self, filename):
+        """加载 C++ 生成的新格式文件（8字节头，mmap + 二分查找，不占额外内存）"""
+        import mmap
+        self.mmap_file = open(filename, 'rb')
+        self.mmap_obj = mmap.mmap(self.mmap_file.fileno(), 0, access=mmap.ACCESS_READ)
+        self.num_records = struct.unpack('Q', self.mmap_obj[0:8])[0]
+
+    def query_state(self, state_code):
+        """二分查找：返回 ([dp0, dp1], [depth0, depth1]) 或 None"""
+        if self.mmap_obj is None:
+            return None
+        left, right = 0, self.num_records - 1
+        while left <= right:
+            mid = (left + right) // 2
+            offset = 8 + mid * self.record_size
+            current = struct.unpack('Q', self.mmap_obj[offset:offset+8])[0]
+            if current < state_code:
+                left = mid + 1
+            elif current > state_code:
+                right = mid - 1
+            else:
+                dp0    = struct.unpack('b', self.mmap_obj[offset+8 :offset+9 ])[0]
+                dp1    = struct.unpack('b', self.mmap_obj[offset+9 :offset+10])[0]
+                depth0 = struct.unpack('H', self.mmap_obj[offset+10:offset+12])[0]
+                depth1 = struct.unpack('H', self.mmap_obj[offset+12:offset+14])[0]
+                return [dp0, dp1], [depth0, depth1]
+        return None
+
+    def __del__(self):
+        if self.mmap_obj is not None:
+            self.mmap_obj.close()
+        if self.mmap_file is not None:
+            self.mmap_file.close()
+
 
 class Strategy:
     def __init__(self, game):
@@ -265,12 +305,19 @@ class Strategy:
 
         class_file = inspect.getfile(Strategy)
         class_dir = os.path.abspath(os.path.dirname(class_file))
-        self.train_file = os.path.join(class_dir, 'game_tree_optimized.data')
+        new_file = os.path.join(class_dir, 'game_tree_3x3_new.data')
+        old_file = os.path.join(class_dir, 'game_tree_optimized.data')
 
-        try:
-            self.solver.load_training_data(self.train_file)
-        except:
-            self.train()
+        if os.path.exists(new_file):
+            self.solver.load_training_data_mmap(new_file)
+            self.use_mmap = True
+        else:
+            self.train_file = old_file
+            try:
+                self.solver.load_training_data(old_file)
+            except:
+                self.train()
+            self.use_mmap = False
 
     def trans(self, deq):
         """将棋子位置队列转为列表"""
@@ -417,12 +464,15 @@ class Strategy:
                         x_new = x_new[1:]
                     _, _, _, next_code = self.sym.canonicalize(x_new, y_canon)
 
-                    if next_code in self.solver.dp:
-                        dp_val = self.solver.dp[next_code][1]
+                    if self.use_mmap:
+                        result = self.solver.query_state(next_code)
+                        dp_val    = result[0][1] if result else 0
+                        depth_val = result[1][1] if result else 0
+                    elif next_code in self.solver.dp:
+                        dp_val    = self.solver.dp[next_code][1]
                         depth_val = self.solver.depth[next_code][1]
                     else:
-                        dp_val = 0
-                        depth_val = 0
+                        dp_val = depth_val = 0
 
                     moves.append([t, dp_val, depth_val])
                 else:
@@ -431,12 +481,15 @@ class Strategy:
                         y_new = y_new[1:]
                     _, _, _, next_code = self.sym.canonicalize(x_canon, y_new)
 
-                    if next_code in self.solver.dp:
-                        dp_val = -self.solver.dp[next_code][0]
-                        depth_val = self.solver.depth[next_code][0]
+                    if self.use_mmap:
+                        result = self.solver.query_state(next_code)
+                        dp_val    = -result[0][0] if result else 0
+                        depth_val =  result[1][0] if result else 0
+                    elif next_code in self.solver.dp:
+                        dp_val    = -self.solver.dp[next_code][0]
+                        depth_val =  self.solver.depth[next_code][0]
                     else:
-                        dp_val = 0
-                        depth_val = 0
+                        dp_val = depth_val = 0
 
                     moves.append([t, dp_val, depth_val])
 

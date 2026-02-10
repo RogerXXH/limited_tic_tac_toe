@@ -3,7 +3,6 @@ import sys
 from Game import GameBase
 import strategies.random.random_strategy as random_strategy
 import strategies.perfect3x3.perfect_strategy as perfect3x3_strategy
-import strategies.perfect4x4_m3.perfect_strategy as perfect4x4_m3_strategy
 
 
 class GameUI:
@@ -13,7 +12,6 @@ class GameUI:
         # Board size configuration
         self.board_sizes = [
             {"size": 3, "max_move": 3, "name": "3×3"},
-            {"size": 4, "max_move": 3, "name": "4×4 (3-move)"},
             {"size": 4, "max_move": 4, "name": "4×4 (4-move)"},
         ]
         self.current_board_index = 0
@@ -32,12 +30,6 @@ class GameUI:
                 "module": perfect3x3_strategy,
                 "description": "Unbeatable 3×3",
                 "supported_configs": [(3, 3)]
-            },
-            {
-                "name": "Perfect AI",
-                "module": perfect4x4_m3_strategy,
-                "description": "Unbeatable 4×4",
-                "supported_configs": [(4, 3)]
             },
         ]
 
