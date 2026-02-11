@@ -3,6 +3,7 @@ import sys
 from Game import GameBase
 import strategies.random.random_strategy as random_strategy
 import strategies.perfect3x3.perfect_strategy as perfect3x3_strategy
+import strategies.perfect4x4_m4.perfect_strategy as perfect4x4_m4_strategy
 
 
 class GameUI:
@@ -30,6 +31,12 @@ class GameUI:
                 "module": perfect3x3_strategy,
                 "description": "Unbeatable 3×3",
                 "supported_configs": [(3, 3)]
+            },
+            {
+                "name": "Perfect AI",
+                "module": perfect4x4_m4_strategy,
+                "description": "Unbeatable 4×4",
+                "supported_configs": [(4, 4)]
             },
         ]
 

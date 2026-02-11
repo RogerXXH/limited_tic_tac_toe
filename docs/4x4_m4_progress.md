@@ -563,3 +563,115 @@ lose 状态: 354,528
    - 按排序后的 code 顺序写入二进制文件（与现有格式兼容）
 
 **内存峰值**：枚举阶段约 2-3 GB，BFS 阶段约 1.9 GB，全程不超过 4 GB。
+
+---
+
+## ❌ 2026-02-12 Bug 发现：对称变换导致 `need` 计算错误
+
+### 问题描述
+
+测试发现 AI 存在严重缺陷：
+- 作为**先手**时，如果后手发起进攻（能连成4子），AI 不会阻止
+- 作为**后手**时，如果发起进攻，能正常获胜
+- **结论**: AI 只知道如何"让己方赢"，但不知道如何"阻止对方赢"
+
+这表明 `train_xwin.cpp` 和 `train_ywin.cpp` 分别训练时，`need` 数组的计算有错误。
+
+### train_xwin.cpp / train_ywin.cpp 实现思路
+
+**两个训练器完全对称，分别计算 X-win 和 Y-win 状态**：
+
+**train_xwin.cpp (X-win 训练器)**:
+- **Type A**: X 有制胜手（能走到某个 Type B），`dp[0] = 1`
+- **Type B**: Y 的所有走法均通向 Type A，`dp[1] = 1`
+- **终局 X-win**: Type B，深度 = 0
+- **四个阶段**:
+  1. Phase 1: 枚举所有标准型，标记终局 X-win 状态
+  2. Phase 2: 计算每个非终局状态的 y 后继数量 → 初始化 `need[]`
+  3. Phase 3: 无边 BFS 传播 X-win 的 Type A 和 Type B
+  4. Phase 4: 保存结果
+
+**train_ywin.cpp (Y-win 训练器)**:
+- **Type A'**: Y 有制胜手，`dp[1] = -1`
+- **Type B'**: X 的所有走法均通向 Type A'，`dp[0] = -1`
+- 完全对称的结构
+
+**输出文件格式**:
+```
+[记录数: 8字节]
+[state_code: 8B | dp0: 1B | dp1: 1B | depth0: 2B | depth1: 2B] × N
+```
+
+### merge_training_data.cpp (合并工具)
+
+**双指针合并法**:
+- 两个输入文件都已排序
+- 同时读取，按 `state_code` 大小顺序写入输出
+- 内存消耗：~28MB（两个缓冲区各约 14MB）
+- 输出到 `game_tree_4x4_m4.data`
+
+**训练结果**:
+- `xwin_4x4_m4.data`: ~102MB
+- `ywin_4x4_m4.data`: ~284MB
+- `game_tree_4x4_m4.data`: ~973MB（合并后）
+
+### Bug 根因分析
+
+**问题所在：`need` 数组计算错误**
+
+**Phase 2: 计算 `need[]`**
+```cpp
+get_y_succs(x, lx, y, ly, succ_buf);
+need[i] = (uint8_t)ns;  // ns = y 后继的数量
+```
+
+**Phase 3: BFS 传播**
+```cpp
+for z in get_y_preds(j):  // j 的 y 前驱
+    need[z]--;  // z 的一个 y 后继进入 Type A
+    if (need[z] == 0):
+        // z z 所有 y 后继均已是 Type A → z 成为 Type B
+        dp_flags[z] |= 2;
+        bfs.push(z);
+```
+
+**核心问题：`canonicalize` 破坏了前驱/后继的对应关系**
+
+`canonicalize` 只返回最小编码，不返回用了哪个变换：
+```cpp
+static uint64_t canonicalize(...) {
+    uint64_t best = UINT64_MAX;
+    for (int t = 0; t < 8; t++) {
+        // ... 变换后得到 code ...
+        if (c < best) best = c;  // 取最小 code
+    }
+    return best;  // 没返回用了哪个变换！
+}
+```
+
+**矛盾**：
+- `need` 初始化时：A 的 y 后继列表里是 `code_B`（用某种变换 T1 得到的）
+- BFS 传播时：`get_y_preds(code_B)` 计算的前驱可能用另一种变换 T2，得到 `code_A'`
+- 如果 `code_A' ≠ code_A`，那么 `need[code_A]` 不会被减！
+
+**为什么原始 Python 版本没问题？**
+
+原始版本使用预存的边：
+```python
+for y in self.edge0_[x]:  # y 是标准化后的 state_code
+    for z in self.edge1_[y]:  # z 也是标准化后的
+        need[z][1] -= 1
+```
+
+关键区别：边已经存储了标准化后的 code，`edge1_[y]` 里的每个 z 都是同一个对称变换下的标准型，所以 `need` 计数正确。
+
+C++ 版本用动态计算前驱，但 `canonicalize` 丢失了变换信息，导致前驱/后继关系无法正确匹配。
+
+### 详细分析文档
+
+详见：`strategies/perfect4x4_m4/bug_analysis_symmetry.md`
+
+**待办**:
+1. 修复对称变换问题（需要记录变换 ID 或改用其他方案）
+2. 重新训练 xwin 和 ywin
+3. 合并并验证 AI 能正确防守
