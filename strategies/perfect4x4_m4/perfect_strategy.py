@@ -236,3 +236,4 @@ class Strategy:
         t = moves[-1][0]
         i, j = t // 4, t % 4
         self.game.play(i, j)
+        return True

@@ -424,7 +424,8 @@ class GameUI:
 
         # 设置当前策略
         if not hasattr(self, 'current_strategy_index') or self.current_strategy_index >= len(self.available_strategies):
-            self.current_strategy_index = 0
+            # 默认选择 Random AI（索引1）
+            self.current_strategy_index = 1 if len(self.available_strategies) > 1 else 0
 
         self.strategy = self.available_strategies[self.current_strategy_index]["instance"]
 
@@ -1023,11 +1024,9 @@ class GameUI:
         if self.result == 1:
             text = "X win"
             text_color = self.xx_color
-            result_icon = "X"
         else:
             text = "O win"
             text_color = self.o_color
-            result_icon = "O"
 
         # 位置在棋盘中央
         board_center_x = self.board_offset_x + (self.grid * self.cell_size) // 2
@@ -1036,46 +1035,16 @@ class GameUI:
         # 绘制结果文本
         text_surface = font_large.render(text, True, text_color)
         text_x = board_center_x - text_surface.get_width() // 2
-        text_y = board_center_y - text_surface.get_height() // 2 - 20
+        text_y = board_center_y - text_surface.get_height() // 2
 
         # 背景
         bg_padding = 30
         bg_rect = pygame.Rect(text_x - bg_padding, text_y - bg_padding // 2,
                              text_surface.get_width() + bg_padding * 2,
-                             text_surface.get_height() + bg_padding + 50)
+                             text_surface.get_height() + bg_padding)
         bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
         pygame.draw.rect(bg_surface, (255, 255, 255, 230), bg_surface.get_rect(), border_radius=15)
-        self.screen.blit(bg_surface, bg_rect)  # special_flags=pygame.BLEND_ALPHA_SDL2)
-
-        # 绘制结果图标
-        icon_font = pygame.font.Font(None, 80)
-        icon_text = icon_font.render(result_icon, True, text_color)
-        icon_x = board_center_x - icon_text.get_width() // 2
-        icon_y = text_y + text_surface.get_height() + 10
-
-        # 绘制大的结果图标带阴影
-        icon_bg_radius = min(40, self.cell_size // 2)
-        icon_bg_size = icon_bg_radius * 2
-
-        # 绘制图标背景圆
-        icon_bg_surface = pygame.Surface((icon_bg_size, icon_bg_size), pygame.SRCALPHA)
-        icon_bg_center = (icon_bg_radius, icon_bg_radius)
-
-        # 绘制图标
-        if result_icon == "X":
-            # 绘制 X
-            draw_x_color = (200, 50, 50, 255)
-            pygame.draw.line(icon_bg_surface, draw_x_color,
-                            (icon_bg_radius - 20, icon_bg_radius + 20),
-                            (icon_bg_radius + 20, icon_bg_radius - 20), 8)
-            pygame.draw.line(icon_bg_surface, draw_x_color,
-                            (icon_bg_radius - 20, icon_bg_radius - 20),
-                            (icon_bg_radius + 20, icon_bg_radius + 20), 8)
-        else:
-            # 绘制 O
-            pygame.draw.circle(icon_bg_surface, (50, 130, 246, 255), icon_bg_center, icon_bg_radius - 8, 8)
-
-        self.screen.blit(icon_bg_surface, (icon_x - icon_bg_radius, icon_y - icon_bg_radius))
+        self.screen.blit(bg_surface, bg_rect)
 
         # 阴影
         shadow_surface = font_large.render(text, True, (0, 0, 0, 60))
@@ -1298,6 +1267,11 @@ class GameUI:
                 j = int(cell_y // self.cell_size)
 
                 if self.game.board[i][j] == 0:
+                    # 在落子前判断是否是玩家回合
+                    if self.play_mode == "pvai" and self._is_ai_turn():
+                        # AI回合，玩家不能落子
+                        return
+
                     self.game.play(i, j)
                     self.draw()
 
@@ -1308,8 +1282,9 @@ class GameUI:
                         self.draw()
                         return
 
-                    # PvAI 模式且是 AI 回合
-                    if self.play_mode == "pvai" and self._is_ai_turn():
+                    # PvAI 模式，让AI走棋
+                    if self.play_mode == "pvai":
+                        # AI回合
                         if self.strategy.make_move():
                             self.draw()
                             # 检查 AI 是否获胜
@@ -1320,8 +1295,18 @@ class GameUI:
 
     def _is_ai_turn(self):
         """判断当前是否是 AI 回合"""
-        current_player = len(self.game.history) % 2  # 0 = X, 1 = O
-        return current_player == self.play
+        if self.play_mode != "pvai" or self.play == -1:
+            return False
+
+        # 当前该谁走（0=X，1=O）
+        current_player = len(self.game.history) % 2
+
+        # AI执另一方棋子
+        # 如果玩家执X(0)，AI执O(1)，AI在O回合走(current_player == 1)
+        # 如果玩家执O(1)，AI执X(0)，AI在X回合走(current_player == 0)
+        ai_player = 1 - self.play
+
+        return current_player == ai_player
 
     def start_game(self, player):
         """开始或重置游戏"""
@@ -1331,7 +1316,12 @@ class GameUI:
 
         if player == -1:
             # 重置按钮
-            self.game_on = False
+            if self.play_mode == "pvp":
+                # PvP模式重置后应该仍然可以继续游戏
+                self.game_on = True
+            else:
+                # PvAI模式重置后需要重新选择执棋方
+                self.game_on = False
         elif self.play_mode == "pvp":
             # PvP 模式 - 直接开始
             self.game_on = True
@@ -1339,8 +1329,9 @@ class GameUI:
             # PvAI 模式开始
             self.game_on = True
 
+            # AI先手的情况：玩家执O（player == 1）时，AI执X先手
             if self.play_mode == "pvai" and player == 1:
-                # AI 先手
+                # AI 先手（X）
                 if not self.strategy.make_move():
                     # AI 不可用，切换到 PvP 模式
                     self.play_mode = "pvp"

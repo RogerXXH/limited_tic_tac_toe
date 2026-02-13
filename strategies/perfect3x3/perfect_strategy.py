@@ -500,3 +500,6 @@ class Strategy:
         t = moves[-1][0]
         i, j = t // 3, t % 3
         self.game.play(i, j)
+        return True
+        return True
+        return True
