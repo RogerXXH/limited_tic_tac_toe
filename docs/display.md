@@ -13,35 +13,70 @@ python display.py
 ## 界面布局
 
 ```
-┌─────────────────────────────────┐
-│ ← → [策略名]      [棋盘尺寸] ← → │  ← 顶部栏
-├─────────────────────────────────┤
-│                                 │
-│           棋盘区域               │
-│                                 │
-├─────────────────────────────────┤
-│  Round N | Your/AI's Turn | vs  │  ← 状态栏
-│ [Play with X]  [R]  [Play with O]│  ← 底部按钮
-└─────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ ┌─────────┐                            │
+│ │Board    │                            │ 侧边菜单
+│ │Config   │                            │
+│ ├─────────┤                            │
+│ │Board Size▼│                           │
+│ │Max Move ▼│                           │
+│ │Win Count▼│                           │
+│ ├─────────┤                            │
+│ │Piece    │                            │
+│ │Style ▼ │                            │
+│ ├─────────┤                            │
+│ │Game Mode│                            │
+│ │[PvP][PvAI]                          │
+│ ├─────────┤                            │
+│ │AI       │                            │
+│ │Strategy▼│                            │
+│ └─────────┘                            │
+│                                        │
+│       ┌─────────────────────────┐        │
+│       │                       │        │  棋盘区域
+│       │                       │        │
+│       │   棋盘               │        │
+│       │                       │        │
+│       │                       │        │
+│       └─────────────────────────┘        │
+│                                        │
+│     Round N | X' Turn | vs Player       │  状态栏
+│                         [R]            │  重置按钮
+└──────────────────────────────────────────────┘
 ```
 
 ---
 
-## 顶部栏
+## 侧边菜单
 
-### 左侧：策略选择器
-- `←` / `→` 按钮切换 AI 策略
-- 当前可用策略：
-  - **Random**：随机落子（所有棋盘尺寸可用）
-  - **Perfect AI**：完整博弈树求解的最优 AI（仅 3×3 可用）
+### Board Config（棋盘配置）
 
-### 右侧：棋盘尺寸选择器
-- `←` / `→` 按钮切换棋盘配置
-- 当前可用配置：
-  - **3×3**：3×3 棋盘，每方保留 3 步
-  - **4×4 (4-move)**：4×4 棋盘，每方保留 4 步（Perfect AI 尚未完成）
+| 配置项 | 范围 | 说明 |
+|--------|------|------|
+| Board Size | 3-15 | 棋盘大小 |
+| Max Move | 1-15 | 每位玩家最多保留的棋子数 |
+| Win Count | 2-15 | 胜利所需的连珠数（通常 ≤ Max Move） |
 
-切换棋盘尺寸会自动重置游戏。
+### Piece Style（棋子样式）
+
+- **X/O Style**: 经典的 X 和和 O 符号
+- **Go Black/White**: 围棋黑白棋样式
+- **Go with Border**: 带边框的围棋样式
+- **Gradient Style**: 渐变色圆样式
+
+### Game Mode（对战模式）
+
+- **PvP**: 双人对弈模式，自动开始
+- **PvAI**: 玩家与 AI 对战，需选择执 X 或 O
+
+### AI Strategy（AI 策略）
+
+| 策略 | 支持配置 | 描述 |
+|------|---------|------|
+| Player vs Player | 全部 | 双人对弈，无 AI |
+| Random AI | 全部 | 随机落子 |
+| Perfect AI 3x3 | 仅 3×3, m=3 | 完美 AI，不可战胜 |
+| Perfect AI 4x4 | 仅 4×4, m=4 | 完美 AI |
 
 ---
 
@@ -49,19 +84,24 @@ python display.py
 
 | 按钮 | 说明 |
 |------|------|
-| **Play with X** | 玩家执 X（先手），点击后游戏开始 |
-| **R** | 重置棋盘（不开始新游戏） |
-| **Play with O** | 玩家执 O（后手），AI 先落子 |
+| **R** | 重置棋盘（重新开始当前对局）|
+| **Play X** (PvAI 模式) | 玩家执 X（先手）|
+| **Play O** (PvAI 模式) | 玩家执 O（后手），AI 先落子 |
+
+PvP 模式无需额外按钮，点击模式切换后自动开始。
 
 ---
 
 ## 棋子视觉
 
+### 颜色渐变
 棋子颜色根据"新旧程度"渐变：
-
 - **新棋子**：颜色鲜艳（X 为亮红，O 为亮蓝）
 - **旧棋子**：颜色逐渐变淡
-- **即将消失的棋子**（最旧且已达上限）：显示为最淡色，提示下一步会消失
+
+### 消失提示边框
+- **红色虚线边框**：即将消失的棋子（最旧的棋子，下一回合会被移除）
+- **黄色虚线边框**：下一个即将消失的棋子（仅当 max_move > 5 时显示）
 
 这让玩家一眼就能判断哪些棋子快要消失。
 
@@ -69,24 +109,58 @@ python display.py
 
 ## 状态栏
 
-游戏进行中显示：`Round N | [Your/AI's] Turn (X/O) | vs [策略名]`
+游戏进行中显示：`Round N | X' Turn (X) | vs Player`
 
-- **Your Turn**：轮到玩家落子
-- **AI's Turn**：AI 正在（或即将）落子
+- **Round N**: 当前回合数
+- **X' Turn / O' Turn**: 当前轮到谁（PvP 模式）或 "Your Turn"/"AI's Turn"（PvAI 模式）
+- **vs Player / vs [AI名]**: 对战模式
 
 ---
 
 ## 扩展：添加新策略
 
-在 `display.py` 的 `strategy_catalog` 中添加条目：
+### 1. 创建策略模块
+
+在 `strategies/` 下创建新目录，例如 `my_strategy/`：
 
 ```python
-{
+# strategies/my_strategy/my_strategy.py
+class Strategy:
+    def __init__(self, game):
+        self.name = "My Strategy"
+        self.game = game
+
+    def make_move(self):
+        """
+        执行 AI 的一步
+        返回 True 表示成功，False 表示失败（如 AI 不可用）
+        """
+        # 分析当前局面
+        # 选择落子位置 (i, j)
+        # self.game.play(i, j)
+        return True
+```
+
+### 2. 创建包初始化文件
+
+```python
+# strategies/my_strategy/__init__.py
+from .my_strategy import Strategy
+__all__ = ['Strategy']
+```
+
+### 3. 在 display.py 中导入和使用
+
+```python
+import strategies.my_strategy.my_strategy as my_strategy_module
+
+# 在 _filter_available_strategies() 中添加
+my_instance = self._get_or_create_strategy(my_strategy_module)
+self.available_strategies.append({
     "name": "My Strategy",
     "module": my_strategy_module,
     "description": "描述",
-    "supported_configs": [(3, 3), (4, 4)]  # 支持的棋盘配置
-}
+    "instance": my_instance,
+    "supports_all": True  # 或 False（特定配置）
+})
 ```
-
-策略模块需要实现 `Strategy` 类，提供 `make_move()` 方法。

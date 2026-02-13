@@ -3,9 +3,10 @@ import random
 
 
 class GameBase:
-    def __init__(self, n, max_move):
+    def __init__(self, n, max_move, win_count=None):
         self.n = n
         self.m = max_move
+        self.win_count = win_count if win_count is not None else max_move
         self.board = [[0] * self.n for _ in range(self.n)]
         self.x = deque()
         self.y = deque()
@@ -34,20 +35,20 @@ class GameBase:
         for di, dj in directions:
             left, right = 0, 0
             i_, j_ = i, j
-            for _ in range(self.m - 1):
+            for _ in range(self.win_count - 1):
                 i_, j_ = i_ + di, j_ + dj
                 if 0 <= i_ < self.n and 0 <= j_ < self.n and self.board[i_][j_] == self.board[i][j]:
                     left += 1
                 else:
                     break
             i_, j_ = i, j
-            for _ in range(self.m - 1):
+            for _ in range(self.win_count - 1):
                 i_, j_ = i_ - di, j_ - dj
                 if 0 <= i_ < self.n and 0 <= j_ < self.n and self.board[i_][j_] == self.board[i][j]:
                     right += 1
                 else:
                     break
-            if left + right + 1 >= self.m:
+            if left + right + 1 >= self.win_count:
                 return self.board[i][j]
         return 0
 
