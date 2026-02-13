@@ -25,7 +25,7 @@ class GameBase:
         return i, j
 
     def reset(self):
-        self.__init__(self.n, self.m)
+        self.__init__(self.n, self.m, self.win_count)
 
     def get_result(self):
         if not self.history:

@@ -7,6 +7,7 @@ import strategies.pvp.pvp_strategy as pvp_strategy
 import strategies.nocpu.nocpu_strategy as nocpu_strategy
 import strategies.perfect3x3.perfect_strategy as perfect3x3_strategy
 import strategies.perfect4x4_m4.perfect_strategy as perfect4x4_m4_strategy
+import strategies.heuristic.heuristic_strategy as heuristic_strategy
 
 
 # ==================== 字体管理 ====================
@@ -400,6 +401,16 @@ class GameUI:
             "supports_all": True
         })
 
+        # Heuristic AI 策略 - 总是可用
+        heuristic_instance = self._get_or_create_strategy(heuristic_strategy)
+        self.available_strategies.append({
+            "name": "Heuristic AI",
+            "module": heuristic_strategy,
+            "description": "Smart heuristic AI",
+            "instance": heuristic_instance,
+            "supports_all": True
+        })
+
         # Perfect AI 3x3
         if current_config == (3, 3):
             perfect3x3_instance = self._get_or_create_strategy(perfect3x3_strategy)
@@ -424,8 +435,8 @@ class GameUI:
 
         # 设置当前策略
         if not hasattr(self, 'current_strategy_index') or self.current_strategy_index >= len(self.available_strategies):
-            # 默认选择 Random AI（索引1）
-            self.current_strategy_index = 1 if len(self.available_strategies) > 1 else 0
+            # 默认选择 Heuristic AI（索引2）
+            self.current_strategy_index = 2 if len(self.available_strategies) > 2 else 0
 
         self.strategy = self.available_strategies[self.current_strategy_index]["instance"]
 
@@ -504,7 +515,7 @@ class GameUI:
         item_height = 30
         label_height = 25
         dropdown_height = 30
-        gap = 10
+        gap = 30
         section_gap = 20
 
         y = menu_start_y
@@ -522,7 +533,7 @@ class GameUI:
             self.board_sizes.index(self.current_board_size),
             self.font_cache.chinese_font_path
         )
-        self.board_size_label_y = y - 22
+        self.board_size_label_y = y - 25
         y += dropdown_height + gap
 
         # Max Move 下拉菜单
@@ -533,7 +544,7 @@ class GameUI:
             self.max_moves.index(self.current_max_move),
             self.font_cache.chinese_font_path
         )
-        self.max_move_label_y = y - 22
+        self.max_move_label_y = y - 25
         y += dropdown_height + gap
 
         # Win Count 下拉菜单
@@ -544,7 +555,7 @@ class GameUI:
             self.win_counts.index(self.current_win_count),
             self.font_cache.chinese_font_path
         )
-        self.win_count_label_y = y - 22
+        self.win_count_label_y = y - 25
         y += dropdown_height + gap + section_gap
 
         # ==================== 棋子样式部分 ====================
@@ -596,33 +607,88 @@ class GameUI:
         button_x_start = self.sidebar_width + 20
 
         # 在 PvP 模式下，不需要 Start 按钮，直接开始
-        # 在 PvAI 模式下，显示 "Play X" 和 "Play O" 按钮
+        # 在 PvAI 模式下，显示 "Play with X"、"R"、"Play with O" 按钮，整体居中
         if self.play_mode == "pvai":
-            # PvAI 模式 - Play X 和 Play O 按钮
+            # PvAI 模式 - Play with X, R, Play with O 按钮组
             board_size = self.grid * self.cell_size
-            button_x = self.board_offset_x + board_size - 230
+            # 计算棋盘中心X坐标
+            board_center_x = self.board_offset_x + board_size // 2
 
+            # 根据棋盘大小调整按钮尺寸和文本
+            if self.grid <= 4:  # 小棋盘（3x3, 4x4）：简化按钮
+                play_button_width = 80   # 缩小宽度
+                button_height = 30      # 缩小高度
+                reset_button_width = 30  # 缩小重置按钮宽度
+                gap = 5                 # 缩小间距
+                x_text = "X"            # 简化文本
+                o_text = "O"
+                print(f"小棋盘模式({self.grid}x{self.grid})：使用简化按钮")
+            else:  # 大棋盘：使用完整按钮
+                play_button_width = 120  # "Play with X/O" 需要更宽
+                button_height = 40
+                reset_button_width = 40
+                gap = 10                 # 按钮间距
+                x_text = "Play with X"  # 完整文本
+                o_text = "Play with O"
+
+            button_group_width = play_button_width * 2 + reset_button_width + gap * 2
+
+            # 智能居中算法：尽可能保持居中，同时确保在边界内
+            # 1. 计算可用空间边界
+            left_boundary = self.board_offset_x
+            right_boundary = self.window_width - 20  # 右边距
+            available_width = right_boundary - left_boundary
+
+            # 2. 检查按钮组是否能完全放入可用空间
+            if button_group_width <= available_width:
+                # 可以完全放入，计算居中位置
+                ideal_button_x = board_center_x - button_group_width // 2
+
+                # 调整位置确保在边界内
+                if ideal_button_x < left_boundary:
+                    button_x = left_boundary
+                elif ideal_button_x + button_group_width > right_boundary:
+                    button_x = right_boundary - button_group_width
+                else:
+                    button_x = ideal_button_x
+            else:
+                # 按钮组太宽，无法完全放入可用空间
+                # 左对齐到棋盘左侧，接受部分按钮可能被裁剪
+                button_x = left_boundary
+                print(f"警告：按钮组宽度({button_group_width})超过可用空间({available_width})，已左对齐")
+
+            # Play with X 按钮
             self.play_x_button = Button(
-                pygame.Rect(button_x, button_y, 100, 40),
-                "Play X",
+                pygame.Rect(button_x, button_y, play_button_width, button_height),
+                x_text,
                 primary=True,
                 font_path=self.font_cache.chinese_font_path
             )
 
+            # R 按钮（作为按钮组的一部分）
+            self.reset_button = Button(
+                pygame.Rect(button_x + play_button_width + gap, button_y, reset_button_width, button_height),
+                "R",
+                primary=False,
+                font_path=self.font_cache.chinese_font_path
+            )
+
+            # Play with O 按钮
             self.play_o_button = Button(
-                pygame.Rect(button_x + 110, button_y, 100, 40),
-                "Play O",
+                pygame.Rect(button_x + play_button_width + gap + reset_button_width + gap, button_y, play_button_width, button_height),
+                o_text,
                 primary=True,
                 font_path=self.font_cache.chinese_font_path
             )
 
-        # Reset 按钮
-        self.reset_button = Button(
-            pygame.Rect(self.window_width - 50, button_y, 40, 40),
-            "R",
-            primary=False,
-            font_path=self.font_cache.chinese_font_path
-        )
+        # Reset 按钮（PvP模式下独立显示，PvAI模式下已包含在按钮组中）
+        if self.play_mode != "pvai":
+            self.reset_button = Button(
+                pygame.Rect(self.window_width - 50, button_y, 40, 40),
+                "R",
+                primary=False,
+                font_path=self.font_cache.chinese_font_path
+            )
 
     def _update_strategy_dropdown(self, x, y, height):
         """更新策略下拉菜单"""
@@ -667,11 +733,11 @@ class GameUI:
         self.screen.blit(board_size_label, (15, self.board_size_label_y))
 
         # Max Move 标签
-        max_move_label = font_small.render("Max Move:", True, self.sidebar_text_color)
+        max_move_label = font_small.render("Max Move (M):", True, self.sidebar_text_color)
         self.screen.blit(max_move_label, (15, self.max_move_label_y))
 
         # Win Count 标签
-        win_count_label = font_small.render("Win Count:", True, self.sidebar_text_color)
+        win_count_label = font_small.render("Win Count (K):", True, self.sidebar_text_color)
         self.screen.blit(win_count_label, (15, self.win_count_label_y))
 
         # ==================== 棋子样式部分 ====================
