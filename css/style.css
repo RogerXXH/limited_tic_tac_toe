@@ -1,0 +1,440 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Microsoft YaHei', 'Segoe UI', 'PingFang SC', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: #333;
+}
+
+.container {
+    display: flex;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 1400px;
+    width: 100%;
+    min-height: 800px;
+    overflow: hidden;
+}
+
+.sidebar {
+    width: 320px;
+    background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    border-right: 1px solid #dee2e6;
+}
+
+.game-area {
+    flex: 1;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+/* 头部样式 */
+.header {
+    text-align: center;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #667eea;
+}
+
+.header h1 {
+    font-size: 24px;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.header .subtitle {
+    font-size: 14px;
+    color: #666;
+    font-style: italic;
+}
+
+/* 信息卡片 */
+.info-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-left: 4px solid #667eea;
+}
+
+.info-card h3 {
+    color: #333;
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+.info-card ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.info-card li {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+    color: #555;
+}
+
+.info-card li:last-child {
+    border-bottom: none;
+}
+
+.info-card li i {
+    color: #667eea;
+    margin-right: 8px;
+    width: 16px;
+}
+
+/* 配置区域 */
+.config h3, .controls h3, .status-container h3, .game-history h3 {
+    color: #333;
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+.config-item {
+    margin-bottom: 18px;
+}
+
+.config-item label {
+    display: block;
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.config-item select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #333;
+    background: white;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.config-item select:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* 按钮样式 */
+.btn-primary, .btn-secondary, .btn-warning, .btn-info, .btn-success {
+    width: 100%;
+    padding: 14px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: white;
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%);
+    color: white;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #8BC34A 0%, #689F38 100%);
+    color: white;
+}
+
+.btn-primary:hover, .btn-secondary:hover, .btn-warning:hover, .btn-info:hover, .btn-success:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+}
+
+.mode-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+/* 状态区域 */
+.status-container {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.status {
+    font-size: 18px;
+    font-weight: 600;
+    color: #667eea;
+    text-align: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.player-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.player-x, .player-o {
+    text-align: center;
+    padding: 15px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.player-x {
+    background: rgba(255, 82, 82, 0.1);
+    color: #FF5252;
+    border: 2px solid #FF5252;
+}
+
+.player-o {
+    background: rgba(33, 150, 243, 0.1);
+    color: #2196F3;
+    border: 2px solid #2196F3;
+}
+
+.piece-count {
+    display: block;
+    font-size: 24px;
+    margin-top: 8px;
+}
+
+/* 画布区域 */
+.canvas-container {
+    position: relative;
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+#gameCanvas {
+    border: 3px solid #333;
+    border-radius: 10px;
+    cursor: pointer;
+    max-width: 100%;
+    background: white;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.canvas-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    border-radius: 15px;
+}
+
+.overlay-content {
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.overlay-content h2 {
+    color: #333;
+    margin-bottom: 25px;
+    font-size: 28px;
+}
+
+/* 历史记录 */
+.game-history {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.history-list {
+    font-size: 14px;
+}
+
+.history-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-empty {
+    text-align: center;
+    color: #999;
+    padding: 20px;
+    font-style: italic;
+}
+
+/* 说明区域 */
+.instructions {
+    font-size: 13px;
+    color: #666;
+    padding-top: 15px;
+    border-top: 1px solid #dee2e6;
+}
+
+.instructions h4 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+    .container {
+        flex-direction: column;
+        max-width: 900px;
+    }
+
+    .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .game-area {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        border-radius: 15px;
+    }
+
+    .sidebar, .game-area {
+        padding: 20px;
+    }
+
+    .header h1 {
+        font-size: 20px;
+    }
+
+    .mode-buttons, .action-buttons {
+        grid-template-columns: 1fr;
+    }
+
+    .player-info {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        border-radius: 10px;
+    }
+
+    .sidebar, .game-area {
+        padding: 15px;
+    }
+
+    .btn-primary, .btn-secondary, .btn-warning, .btn-info, .btn-success {
+        padding: 12px;
+        font-size: 14px;
+    }
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.info-card, .status-container, .game-history {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* 滚动条样式 */
+.game-history::-webkit-scrollbar {
+    width: 6px;
+}
+
+.game-history::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.game-history::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 3px;
+}
+
+.game-history::-webkit-scrollbar-thumb:hover {
+    background: #764ba2;
+}

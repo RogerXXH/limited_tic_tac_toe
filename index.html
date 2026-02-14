@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>有限步数井字棋 - Limited Tic-Tac-Toe</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="header">
+                <h1><i class="fas fa-chess-board"></i> 有限步数井字棋</h1>
+                <p class="subtitle">Limited Tic-Tac-Toe</p>
+            </div>
+
+            <div class="game-info">
+                <div class="info-card">
+                    <h3><i class="fas fa-info-circle"></i> 游戏规则</h3>
+                    <ul>
+                        <li>棋盘大小：<span id="currentBoardSize">4x4</span></li>
+                        <li>最大棋子数：<span id="currentMaxMove">3</span></li>
+                        <li>胜利条件：<span id="currentWinCount">3连</span></li>
+                        <li>棋子会按FIFO规则消失</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="config">
+                <h3><i class="fas fa-cog"></i> 游戏配置</h3>
+
+                <div class="config-item">
+                    <label for="boardSize"><i class="fas fa-th"></i> 棋盘大小:</label>
+                    <select id="boardSize">
+                        <option value="3">3x3</option>
+                        <option value="4" selected>4x4</option>
+                        <option value="5">5x5</option>
+                        <option value="6">6x6</option>
+                        <option value="7">7x7</option>
+                    </select>
+                </div>
+
+                <div class="config-item">
+                    <label for="maxMove"><i class="fas fa-chess-pawn"></i> 最大步数:</label>
+                    <select id="maxMove">
+                        <option value="2">2</option>
+                        <option value="3" selected>3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                    </select>
+                </div>
+
+                <div class="config-item">
+                    <label for="winCount"><i class="fas fa-trophy"></i> 胜利条件:</label>
+                    <select id="winCount">
+                        <option value="2">2连</option>
+                        <option value="3" selected>3连</option>
+                        <option value="4">4连</option>
+                        <option value="5">5连</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="controls">
+                <h3><i class="fas fa-gamepad"></i> 游戏模式</h3>
+
+                <div class="mode-buttons">
+                    <button id="pvpBtn" class="btn-primary">
+                        <i class="fas fa-user-friends"></i> 玩家对战
+                    </button>
+                    <button id="pvaiBtn" class="btn-secondary">
+                        <i class="fas fa-robot"></i> 人机对战
+                    </button>
+                </div>
+
+                <div class="action-buttons">
+                    <button id="resetBtn" class="btn-warning">
+                        <i class="fas fa-redo"></i> 重置游戏
+                    </button>
+                    <button id="undoBtn" class="btn-info">
+                        <i class="fas fa-undo"></i> 撤销一步
+                    </button>
+                </div>
+            </div>
+
+            <div class="status-container">
+                <h3><i class="fas fa-chart-line"></i> 游戏状态</h3>
+                <div class="status" id="status">准备开始 - 点击棋盘开始游戏</div>
+                <div class="player-info">
+                    <div class="player-x">
+                        <i class="fas fa-times"></i> X 玩家
+                        <span class="piece-count" id="xCount">0</span>
+                    </div>
+                    <div class="player-o">
+                        <i class="far fa-circle"></i> O 玩家
+                        <span class="piece-count" id="oCount">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="instructions">
+                <h4><i class="fas fa-lightbulb"></i> 操作说明</h4>
+                <p>点击棋盘格落子，棋子达到最大数量后，最旧的棋子会消失。</p>
+            </div>
+        </div>
+
+        <div class="game-area">
+            <div class="canvas-container">
+                <canvas id="gameCanvas"></canvas>
+                <div class="canvas-overlay" id="gameOverlay">
+                    <div class="overlay-content" id="overlayContent">
+                        <h2 id="gameResultText"></h2>
+                        <button id="playAgainBtn" class="btn-success">
+                            <i class="fas fa-play"></i> 再玩一次
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-history">
+                <h3><i class="fas fa-history"></i> 历史记录</h3>
+                <div class="history-list" id="historyList">
+                    <div class="history-empty">暂无记录</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 游戏脚本 -->
+    <script src="js/game.js"></script>
+    <script src="js/randomAI.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
