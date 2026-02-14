@@ -324,6 +324,143 @@ class UniversalEvaluator:
 
         return score
 
+    def _check_win_at_position(self, board, player, i, j):
+        """检查在位置(i,j)落子后，玩家是否获胜
+
+        Args:
+            board: 棋盘状态
+            player: 玩家 (1=X, -1=O)
+            i, j: 落子位置
+
+        Returns:
+            True如果获胜，否则False
+        """
+        n = len(board)
+        K = self.game.win_count
+
+        # 临时创建模拟棋盘
+        sim_board = [row[:] for row in board]
+        sim_board[i][j] = player
+
+        # 检查所有方向
+        directions = [
+            [(0, 1), (0, -1)],  # 水平
+            [(1, 0), (-1, 0)],  # 垂直
+            [(1, 1), (-1, -1)], # 主对角线
+            [(1, -1), (-1, 1)]  # 反对角线
+        ]
+
+        for dir_pair in directions:
+            total_length = 1  # 当前落子
+            for (di, dj) in dir_pair:
+                length_in_dir = 0
+                ni, nj = i + di, j + dj
+                while 0 <= ni < n and 0 <= nj < n and sim_board[ni][nj] == player:
+                    length_in_dir += 1
+                    ni += di
+                    nj += dj
+                total_length += length_in_dir
+
+            if total_length >= K:
+                return True
+
+        return False
+
+    def evaluate_move_score(self, board, player, move_i, move_j):
+        """评估落子位置的综合得分（进攻+防守）
+
+        Args:
+            board: 当前棋盘状态（二维数组）
+            player: 要评估的玩家 (1=X, -1=O)
+            move_i, move_j: 落子位置
+
+        Returns:
+            综合得分
+        """
+        n = len(board)
+        opponent = -player
+
+        # 1. 紧急情况检查：如果自己能立即获胜，直接给最高分
+        if self._check_win_at_position(board, player, move_i, move_j):
+            return 100000  # 立即获胜，最高优先级
+
+        # 2. 防守紧急情况：如果对手在此位置落子能立即获胜，给予极高防守分
+        if self._check_win_at_position(board, opponent, move_i, move_j):
+            # 防守立即获胜威胁，优先级仅次于自己立即获胜
+            defensive_score = 50000
+        else:
+            # 3. 常规防守得分：评估对手在此位置落子后的威胁潜力
+            sim_board_opp = [row[:] for row in board]  # 深拷贝
+            sim_board_opp[move_i][move_j] = opponent
+            defensive_threat = self._evaluate_board_score(sim_board_opp, opponent)
+
+            # 动态防守权重：根据威胁级别调整
+            if defensive_threat > 5000:
+                defensive_weight = 1.5  # 紧急防守
+            elif defensive_threat > 1000:
+                defensive_weight = 1.2  # 重要防守
+            else:
+                defensive_weight = 0.8  # 常规防守
+
+            defensive_score = defensive_threat * defensive_weight
+
+        # 4. 常规进攻得分
+        sim_board_ai = [row[:] for row in board]  # 深拷贝
+        sim_board_ai[move_i][move_j] = player
+        offensive_score = self._evaluate_board_score(sim_board_ai, player)
+
+        # 5. 位置控制得分（中心价值）
+        center_dist = math.sqrt(((move_i - n/2) ** 2 + (move_j - n/2) ** 2))
+        position_value = 10.0 / (1.0 + center_dist)
+        position_score = position_value * 100
+
+        # 6. 综合得分：进攻 + 防守 + 位置
+        total_score = offensive_score + defensive_score + position_score
+
+
+        return total_score
+
+    def _evaluate_board_score(self, board, player):
+        """评估指定棋盘状态对指定玩家的得分
+
+        Args:
+            board: 棋盘状态（二维数组）
+            player: 要评估的玩家 (1=X, -1=O)
+
+        Returns:
+            评估得分
+        """
+        score = 0
+
+        # 使用detector检测威胁
+        threats = self.detector.detect_threats(board, player)
+        opponent_threats = self.detector.detect_threats(board, -player)
+
+        # 进攻得分（己方威胁）
+        for threat_type, patterns in threats.items():
+            for pattern in patterns:
+                score += self._score_pattern(pattern, threat_type, is_attack=True)
+
+        # 防守得分（对手威胁）
+        for threat_type, patterns in opponent_threats.items():
+            for pattern in patterns:
+                score += self._score_pattern(pattern, threat_type, is_attack=False)
+
+        # 位置控制得分（简化版本）
+        n = len(board)
+        position_score = 0
+        for i in range(n):
+            for j in range(n):
+                if board[i][j] == player:
+                    # 中心价值
+                    center_dist = math.sqrt(((i - n/2) ** 2 + (j - n/2) ** 2))
+                    position_value = 1.0 / (1.0 + center_dist)
+                    position_score += position_value * 10
+
+        score += position_score
+
+        return score
+
 
 class Strategy:
     """启发式AI策略"""
@@ -345,35 +482,25 @@ class Strategy:
 
         # 获取当前棋盘状态
         n = self.game.n
-        current_board = [row[:] for row in self.game.board]  # 深拷贝
+        current_board = self.game.board  # 直接引用，evaluate_move_score会深拷贝
 
         # 评估所有空位
         for i in range(n):
             for j in range(n):
                 if current_board[i][j] == 0:
-                    # 创建模拟棋盘
-                    sim_board = [row[:] for row in current_board]
-                    sim_board[i][j] = ai_player
-
-                    # 计算模拟落子后的局面得分
-                    # 临时创建评估器副本（如果需要，可以优化）
-                    # 简单方法：计算进攻价值和防守价值
-
-                    score = self._evaluate_position_score(sim_board, ai_player, i, j)
+                    # 使用UniversalEvaluator评估落子位置的综合得分
+                    score = self.evaluator.evaluate_move_score(
+                        current_board, ai_player, i, j
+                    )
 
                     if score > best_score:
                         best_score = score
                         best_move = (i, j)
 
-
         # 执行最佳落子
-
         if best_move:
-
             i, j = best_move
-
             self.game.play(i, j)
-
             return True
 
         return False
